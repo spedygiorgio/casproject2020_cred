@@ -1,0 +1,13 @@
+.Rhistory
+agricolture-ita/
+cas_in_out/
+data/
+desktop.ini
+materials/
+meeting-summary/
+*.ptf
+*.Rmd
+*.docx
+references/
+*.bib
+modelss/

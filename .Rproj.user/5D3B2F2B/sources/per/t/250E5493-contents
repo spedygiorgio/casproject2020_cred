@@ -1,0 +1,224 @@
+---
+title: 'Some tests of credibility models'
+author: Giorgio A. Spedicato, Ph.D FCAS FSA CSPA, Christophe Dutang, Ph.D, Quentin
+  Guibert, Ph.D
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+
+
+
+# Dataset formatting for `cm()`
+
+## Load dataset
+
+```{r}
+if(dir.exists("~/drop2/Dropbox/CAS PROJECT 2020 CREDIBILITY/data/grouped"))
+{
+  odir <- getwd()
+  setwd("~/drop2/Dropbox/CAS PROJECT 2020 CREDIBILITY/data/grouped")
+} else{
+  odir <- getwd()
+  setwd("C:/Users/qguib/Dropbox/CAS PROJECT 2020 CREDIBILITY/data/grouped")
+}
+
+cpn.unbal <- read.csv("cpn_anonymized_data_grped_unbal.csv", stringsAsFactors=TRUE, colClasses = "numeric")
+
+cpnmkt.unbal <- read.csv("cpnmkt_anonymized_data_grped_unbal.csv", stringsAsFactors=TRUE, 
+                         colClasses = c("factor", rep("numeric", 55)))
+
+head(cpn.unbal)
+
+if(dir.exists("~/drop2/Dropbox/CAS PROJECT 2020 CREDIBILITY/data/"))
+{
+  setwd(odir)
+}
+```
+
+
+
+## Description (reminder)
+
+The following variables are contained in the provided data set:
+
+* *exposure*: the insurance exposure measures by classification group, on which the rate is filled (aggregated outcomes);
+* *claims*: the number of claims by classification group  (aggregated outcomes);
+* *ID*: unique row number (helper variable);
+* *zone_id*: territory (aggregating variable);
+* *year*: filing year (aggregating variable);
+* *group*: random partition of the dataset into train, valid and test set.
+* *cat1*: categorical variable 1, available in the original file (aggregating variable);
+* *cat2*: categorical variable 2, available in the original file (aggregating variable);
+* *cat3*: categorical variable 3, available in the original file (aggregating variable);
+* *cat4-cat8*: categorical variables related to the territory (joined to the original file by zone_id);
+* *cont1-cont12*: numeric variables related to the territory (joined to the original file by zone_id);
+
+Categorical and continuous covariates have been anonymized by label encoding and scaling (calibrated on market data).
+In addition, the last available year (2008) has been used as test set, while data from precedent years have been randomly split between train and validation sets on a 80/20 basis.
+
+
+# Basic buhlmann Straub model per dataset
+
+## Basic buhlmann Straub model of claim number or claim relative frequency -- company only
+
+Compute simple buhlmann Straub model of claim number or claim relative frequency per zone_id on the company dataset
+```{r}
+library(actuar)
+
+cpn.buhlstraub.nb <- cm(~ cat1+ cat1:cat2+ cat1:cat2:zone_id, ratios=Claims2003:Claims2008,
+                        weights=Expo2003:Expo2008, data=cpn.unbal)
+cpn.buhlstraub.freq <- cm(~ cat1+ cat1:cat2+ cat1:cat2:zone_id, ratios=Freq2003:Freq2008,
+                          weights=Expo2003:Expo2008, data=cpn.unbal)
+```
+```{r, echo=FALSE}
+my.summary.cm <- function (x, n2print=6, ...) 
+{
+    nlevels <- length(x$nodes)
+    level.names <- names(x$nodes)
+    if(!inherits(x, "summary.cm"))
+      x <- summary(x)
+    sx <- x
+    if(class(sx)[1] == "summary.cm")
+      class(sx) <- class(sx)[-1]
+    print(sx)
+    cat("Detailed premiums\n\n")
+    for (i in seq.int(nlevels)) {
+        if (nlevels > 1L) 
+            cat("  Level:", level.names[i], "\n")
+        if (is.null(level.names)) 
+            levs <- NULL
+        else {
+            level.id <- match(level.names[i], colnames(x$classification))
+            levs <- x$classification[, seq.int(level.id), drop = FALSE]
+            m <- duplicated(levs)
+        }
+        if (attr(x, "model") == "regression") {
+            y <- cbind(" ", as.vector(format(x$means[[i + 1L]], 
+                ...)), as.vector(apply(format(x$cred[[i]], ...), 
+                c(1L, 3L), paste, collapse = " ")), as.vector(format(sapply(x$adj.models, 
+                coef), ...)), " ")
+            y[seq(1, nrow(y), dim(x$cred[[i]])[1]), c(1L, 5L)] <- c(levs[!m, 
+                , drop = FALSE], format(x$premiums[[i]], ...))
+            colnames(y) <- c(colnames(levs), "Indiv. coef.", 
+                "Cred. matrix", "Adj. coef.", "Cred. premium")
+        }
+        else if (is.null(levs)) {
+            y <- cbind(format(x$means[[i + 1L]], ...), format(x$weights[[i + 
+                1L]], ...), format(x$cred[[i]], ...), format(x$premiums[[i]], 
+                ...))
+            colnames(y) <- c("Indiv. mean", "Weight", "Cred. factor", 
+                "Bayes premium")
+        }
+        else {
+            y <- cbind(as.matrix(levs[!m, , drop = FALSE]), format(x$means[[i + 
+                1L]], ...), format(x$weights[[i + 1L]], ...), 
+                format(x$cred[[i]], ...), format(x$premiums[[i]], 
+                  ...))
+            colnames(y) <- c(colnames(levs), "Indiv. mean", "Weight", 
+                "Cred. factor", "Cred. premium")
+        }
+        rownames(y) <- rep("   ", nrow(y))
+        if(n2print < 0)
+          print(y, quote = FALSE, right = FALSE, ...)
+        else if(n2print == 0)
+          cat("not printed")
+        else 
+        {
+          print(head(y, n2print/2), quote = FALSE, right = FALSE, ...)
+          cat("\t...\n")
+          print(tail(y, n2print/2), quote = FALSE, right = FALSE, ...)
+        }
+        cat("\n")
+    }
+    invisible(x)
+}
+```
+Using the claim number (absolute value) or the claim frequency (relative number) leads to 
+complete different results
+```{r}
+
+my.summary.cm(summary(cpn.buhlstraub.nb))
+hist(cpn.buhlstraub.nb$cred$cat1, xlab=capture.output(summary(cpn.buhlstraub.nb$cred$cat1)))
+hist(cpn.buhlstraub.nb$cred$cat2, xlab=capture.output(summary(cpn.buhlstraub.nb$cred$cat2)))
+hist(cpn.buhlstraub.nb$cred$zone_id, xlab=capture.output(summary(cpn.buhlstraub.nb$cred$zone_id)))
+
+my.summary.cm(summary(cpn.buhlstraub.freq))
+hist(cpn.buhlstraub.freq$cred$cat1, xlab=capture.output(summary(cpn.buhlstraub.freq$cred$cat1)))
+hist(cpn.buhlstraub.freq$cred$cat2, xlab=capture.output(summary(cpn.buhlstraub.freq$cred$cat2)))
+hist(cpn.buhlstraub.freq$cred$zone_id, xlab=capture.output(summary(cpn.buhlstraub.freq$cred$zone_id)))
+
+hist(summary(cpn.buhlstraub.freq)$premiums$cat1, xlab=capture.output(summary(summary(cpn.buhlstraub.freq)$premiums$cat1)))
+hist(summary(cpn.buhlstraub.freq)$premiums$cat2, xlab=capture.output(summary(summary(cpn.buhlstraub.freq)$premiums$cat2)))
+hist(summary(cpn.buhlstraub.freq)$premiums$zone_id, xlab=capture.output(summary(summary(cpn.buhlstraub.freq)$premiums$zone_id)))
+
+hist(summary(cpn.buhlstraub.nb)$premiums$zone_id, xlab=capture.output(summary(summary(cpn.buhlstraub.nb)$premiums$zone_id)))
+
+
+```
+
+
+
+
+
+# Basic buhlmann Straub model for both market and company
+
+
+## load dataset
+
+We keep only years 2003 to 2008 because the company is not available outside that period.
+```{r}
+
+
+tapply(cpnmkt.unbal$Expo2003, cpnmkt.unbal$Entity, summary)
+
+tapply(cpnmkt.unbal$Freq2003, cpnmkt.unbal$Entity, summary)
+
+colclaims <- grep("Claims", colnames(cpnmkt.unbal), value=TRUE)
+colexpo <- grep("Expo", colnames(cpnmkt.unbal), value=TRUE)
+colfreq <- grep("Freq", colnames(cpnmkt.unbal), value=TRUE)
+
+years <- as.numeric(substr(colclaims, 7, 10))
+
+matplot(years, 
+  t(sapply(colfreq, function(col)
+  tapply(cpnmkt.unbal[, col], cpnmkt.unbal$Entity, mean, na.rm=TRUE)))
+, type="l", ylab="claim frequency", xlab="year", main="claim freq., black=company")
+
+matplot(years, 
+  t(sapply(colexpo, function(col)
+  tapply(cpnmkt.unbal[, col], cpnmkt.unbal$Entity, mean, na.rm=TRUE)
+)), type="l", ylab="exposure", xlab="year", main="exposure, black=company")
+
+matplot(years, 
+  t(sapply(colclaims, function(col)
+  tapply(cpnmkt.unbal[, col], cpnmkt.unbal$Entity, mean, na.rm=TRUE)
+)), type="l", ylab="claim number", xlab="year", main="claim nb., black=company")
+
+
+```
+
+
+## Hierarchical Buhlmann Straub model
+
+```{r}
+head(cpnmkt.unbal)
+
+cpnmkt.buhlstraub.nb <- cm(~ cat1+ cat1:cat2+ cat1:cat2:zone_id+ cat1:cat2:zone_id:Entity,
+                           ratios=Claims2003:Claims2008,
+                        weights=Expo2003:Expo2008, data=cpnmkt.unbal)
+my.summary.cm(summary(cpnmkt.buhlstraub.nb))
+
+cpnmkt.buhlstraub.freq <- cm(~ cat1+ cat1:cat2+ cat1:cat2:zone_id+ cat1:cat2:zone_id:Entity,
+                             ratios=Freq2003:Freq2008,
+                          weights=Expo2003:Expo2008, data=cpnmkt.unbal)
+my.summary.cm(summary(cpnmkt.buhlstraub.freq))
+
+
+```
+
+

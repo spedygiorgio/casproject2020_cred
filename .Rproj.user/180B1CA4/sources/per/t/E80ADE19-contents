@@ -1,0 +1,351 @@
+---
+title: 'Export datasets for credibility models'
+author: Giorgio A. Spedicato, Ph.D FCAS FSA CSPA, Christophe Dutang, Ph.D, Quentin
+  Guibert, Ph.D
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+
+```{r}
+```
+
+
+# Dataset formatting for `cm()`
+
+## Load dataset
+
+```{r}
+if(dir.exists("~/drop2/Dropbox/CAS PROJECT 2020 CREDIBILITY/data/preprocessed"))
+{
+  odir <- getwd()
+  setwd("~/drop2/Dropbox/CAS PROJECT 2020 CREDIBILITY/data/preprocessed")
+}
+
+cpn <- read.table(header=TRUE, nrows=-1, file="cpn_anonymized_data.csv", sep=";", dec=".", stringsAsFactors=TRUE)
+mkt <- read.table(header=TRUE, nrows=-1, file="mkt_anonymized_data.csv", sep=";", dec=".", stringsAsFactors=TRUE)
+
+
+```
+
+
+
+## Description (reminder)
+
+The following variables are contained in the provided data set:
+
+* *exposure*: the insurance exposure measures by classification group, on which the rate is filled (aggregated outcomes);
+* *claims*: the number of claims by classification group  (aggregated outcomes);
+* *ID*: unique row number (helper variable);
+* *zone_id*: territory (aggregating variable);
+* *year*: filing year (aggregating variable);
+* *group*: random partition of the dataset into train, valid and test set.
+* *cat1*: categorical variable 1, available in the original file (aggregating variable);
+* *cat2*: categorical variable 2, available in the original file (aggregating variable);
+* *cat3*: categorical variable 3, available in the original file (aggregating variable);
+* *cat4-cat8*: categorical variables related to the territory (joined to the original file by zone_id);
+* *cont1-cont12*: numeric variables related to the territory (joined to the original file by zone_id);
+
+Categorical and continuous covariates have been anonymized by label encoding and scaling (calibrated on market data).
+In addition, the last available year (2008) has been used as test set, while data from precedent years have been randomly split between train and validation sets on a 80/20 basis.
+
+## Formatting using `data.table` of the company dataset
+
+Use `data.table` for a quick result
+```{r}
+head(cpn)
+table(cpn$year)
+table(cpn$cat2, cpn$year)
+head(tbZoneCat2 <- table(cpn$zone_id, cpn$cat2))
+mean(tbZoneCat2 != 0)
+head(tbZoneYear <- table(cpn$zone_id, cpn$year))
+mean(tbZoneYear != 0)
+
+subset(cpn, zone_id == 0 & year == 2004)
+subset(cpn, zone_id == 4 & year == 2004)
+
+majorcategory <- function(x)
+  as.integer(names(which.max(table(x))))
+majorcategory(subset(cpn, zone_id == 4 & year == 2004)$cat8)
+
+library(data.table)
+cpndt <- as.data.table(cpn)
+
+cpn.by.zone.year <- cpndt[, .("exposure"=sum(exposure), "claims"=sum(claims), "cont1"=mean(cont1),
+                              "cont2"=mean(cont2), "cont3"=mean(cont3), "cont4"=mean(cont4),
+                              "cont5"=mean(cont5), "cont6"=mean(cont6), "cont7"=mean(cont7),
+                              "cont8"=mean(cont8), "cont9"=mean(cont9), "cont10"=mean(cont10),
+                              "cont11"=mean(cont11), "cont12"=mean(cont12), "cont13"=mean(cont13),
+                              "cat3"=majorcategory(cat3), 
+                              "cat4"=majorcategory(cat4), "cat5"=majorcategory(cat5), "cat6"=majorcategory(cat6), 
+                              "cat7"=majorcategory(cat7), "cat8"=majorcategory(cat8)), 
+                          by=c("zone_id", "year", "cat2", "cat1")]
+
+
+if(FALSE)
+{
+cpn.check <- cbind("exposure"=tapply(cpn$exposure, paste0(cpn$zone_id, "-", cpn$year), sum),
+      "claims"=tapply(cpn$claims, paste0(cpn$zone_id, "-", cpn$year, "-", cpn$cat2, "-", cpn$cat1), sum))
+
+cpn.check2 <- aggregate(cpn[1:10, paste0("cont", 1:13)], by=list("zone_id"=cpn$zone_id[1:10], "year"=cpn$year[1:10],
+                                                                 "cat2"=cpn$cat2[1:10], "cat1"=cpn$cat1[1:10]), FUN=mean)
+
+head(cpn.by.zone.year)
+cpn.check[c("0-2004-6-154", "0-2005-6-154"),]
+cpn.check2
+subset(cpn, zone_id == 4 & year == 2004)
+
+}
+
+cpn.by.zone.year <- cpn.by.zone.year[order(cpn.by.zone.year$cat1, cpn.by.zone.year$cat2, cpn.by.zone.year$zone_id, cpn.by.zone.year$year), ]
+
+table(cpn.by.zone.year$cat2)
+table(cpn.by.zone.year$cat1, cpn.by.zone.year$cat2)
+
+subset(cpn.by.zone.year, zone_id == 23 & cat1 == 0)
+head(subset(cpn, zone_id == 23 & cat1 == 0), 15)
+
+#longitudinal format
+write.csv(cpn.by.zone.year, file="cpn_anonymized_data_grped_long.csv", row.names = FALSE)
+```
+
+
+## Transform to unbalanced format of the company dataset
+
+Internal functions
+```{r}
+#longitudinal to unbalanced data format per zone, per cat1, per cat2
+long2unbalance <- function(data, zone, c1, c2, years=2003:2008, echo=FALSE)
+{
+  dz <- data[data$zone_id == zone & data$cat1 == c1 & data$cat2 == c2, ]
+  expo <- claims <- rep(NA, length(years))
+  names(expo) <- names(claims) <- years
+  stopifnot(length(dz$year) <= length(years))
+  #expand
+  expo[as.character(dz$year)] <- dz$exposure
+  claims[as.character(dz$year)] <- dz$claims
+  #aggregate by mean
+  contdz <- apply(dz[, paste0("cont", 1:13)], 2, mean)
+  #aggregate by majority class
+  catdz <- apply(dz[, paste0("cat", 1:8)], 2, majorcategory)
+  
+  res <- c(zone, expo, claims, freq=claims/expo)
+  names(res) <- c("zone_id", paste0("Expo", years), 
+                  paste0("Claims", years), paste0("Freq", years))
+  c(res, contdz, catdz)
+
+}
+
+long2unbalance_allzone <- function(data, c1, c2, years, echo=FALSE)
+{
+  datac1c2 <- subset(data, cat1 == c1 & cat2 == c2)
+  myzone <- unique(datac1c2$zone_id)
+  if(echo)
+     cat("length(zone)", length(myzone), "- ")
+  if(length(myzone) > 1)
+  {
+    out <- t(sapply(myzone,  function(z) 
+      long2unbalance(datac1c2, z, c1, c2, years)))
+    out
+  }else
+  {
+    out <- long2unbalance(datac1c2, myzone, c1, c2, years)
+    out <- matrix(out, nrow=1, dimnames = list(NULL, names(out)))
+  }
+  out
+}
+
+checkncolnames <- function(x)
+{
+  colx <- sapply(x, NCOL)
+  colnamx <- sapply(x, colnames)
+  r1 <- all(colx[1] == colx[-1])
+  if(r1)
+    c("ncol"=r1, 
+      "colnam"=all(colnamx[,1] == colnamx[, -1]))
+  else
+    c("ncol"=r1, "colnam"=FALSE)
+}
+
+
+long2unbalance_allzonec2 <- function(data, c1, years, echo=FALSE)
+{
+  datac1 <- subset(data, cat1 == c1)
+  myc2 <- unique(datac1$cat2)
+  if(echo)
+     cat("cat1", c1, "cat2", myc2, "\n")
+  if(length(myc2) > 1)
+  {
+    out <- lapply(myc2,  function(x) 
+      long2unbalance_allzone(datac1, c1, x, years, echo=echo))
+    if(is.list(out)) #multiple zone per cat2, cat1
+    {
+      checkncol <- checkncolnames(out)
+      if(!checkncol["ncol"])
+        stop("wrong column number")
+      if(!checkncol["colnam"])
+        stop("wrong column names")
+      out <- do.call(rbind, out)
+    }
+  }else
+  {
+     out <- long2unbalance_allzone(datac1, c1, myc2, years, echo=echo)
+     #out <- matrix(out, nrow=1, dimnames = list(NULL, names(out)))
+  }
+  if(echo)
+     cat("\n\n")
+  out
+}
+
+long2unbalance_allzonec2c1 <- function(data, years, echo=FALSE)
+{
+  myc1 <- unique(data$cat1)
+  if(echo)
+     cat("cat1 vector", myc1, "\n")
+  if(length(myc1) > 1)
+  {
+    out <- lapply(myc1,  function(x) 
+      long2unbalance_allzonec2(data, x, years, echo=echo))
+    if(is.list(out)) 
+    {
+      checkncol <- checkncolnames(out)
+      if(!checkncol["ncol"])
+        stop("wrong column number")
+      if(!checkncol["colnam"])
+        stop("wrong column names")
+      out <- do.call(rbind, out)
+    }
+  }else
+     out <- long2unbalance_allzonec2(data, myc1, years, echo=echo)
+  
+  as.data.frame(out)
+}
+```
+
+
+Transform data into unbalanced data format required by `cm()`
+and compute the normalized response, that is claim frequency, see p77 of Buhlmann and Gisler.
+```{r}
+
+cpn.by.zone.year.unbal <- long2unbalance_allzonec2c1(cpn.by.zone.year, 1998:2008, echo=FALSE)
+
+table(cpn.by.zone.year.unbal$cat1, cpn.by.zone.year.unbal$cat2)
+
+
+#longitudinal format
+write.csv(cpn.by.zone.year.unbal, file="cpn_anonymized_data_grped_unbal.csv", row.names = FALSE)
+```
+
+
+
+
+
+## Formatting using `data.table` of the market dataset
+
+We keep only years 2003 to 2008 because the company is not available outside that period.
+```{r}
+mktdt <- as.data.table(mkt)
+
+mkt.by.zone.year <- mktdt[, .("exposure"=sum(exposure), "claims"=sum(claims), "cont1"=mean(cont1),
+                              "cont2"=mean(cont2), "cont3"=mean(cont3), "cont4"=mean(cont4),
+                              "cont5"=mean(cont5), "cont6"=mean(cont6), "cont7"=mean(cont7),
+                              "cont8"=mean(cont8), "cont9"=mean(cont9), "cont10"=mean(cont10),
+                              "cont11"=mean(cont11), "cont12"=mean(cont12), "cont13"=mean(cont13),
+                              "cat3"=majorcategory(cat3), 
+                              "cat4"=majorcategory(cat4), "cat5"=majorcategory(cat5), "cat6"=majorcategory(cat6), 
+                              "cat7"=majorcategory(cat7), "cat8"=majorcategory(cat8)), 
+                          by=c("zone_id", "year", "cat2", "cat1")]
+
+
+mkt.by.zone.year <- mkt.by.zone.year[order(mkt.by.zone.year$zone_id, mkt.by.zone.year$year), ]
+head(mkt.by.zone.year, 10)
+
+#longitudinal format
+write.csv(mkt.by.zone.year, file="mkt_anonymized_data_grped_long.csv", row.names = FALSE)
+
+summary(mkt.by.zone.year)
+table(mkt.by.zone.year$year)
+
+#mkt.by.zone.year.unbal <- as.data.frame(t(sapply(unique(mkt.by.zone.year$zone_id)[1:6], 
+#       function(z) long2unbalance(mkt.by.zone.year, z, years=1998:2008))))
+
+table(mkt.by.zone.year$cat1, mkt.by.zone.year$cat2)
+
+mkt.by.zone.year.unbal <- long2unbalance_allzonec2c1(mkt.by.zone.year, 1998:2008, echo=FALSE)
+
+
+
+head(mkt.by.zone.year.unbal)
+
+#unbalanced format
+write.csv(mkt.by.zone.year.unbal, file="mkt_anonymized_data_grped_unbal.csv", row.names = FALSE)
+```
+
+## Merge
+
+Finally merge company and entity datasets. Few first graphics
+```{r }
+#merge
+
+cpnmkt.by.zone.year <- rbind(
+  cbind(Entity="Market", mkt.by.zone.year),
+  cbind(Entity="Company", cpn.by.zone.year))
+cpnmkt.by.zone.year <- cpnmkt.by.zone.year[order(cpnmkt.by.zone.year$zone_id, cpnmkt.by.zone.year$year), ]
+head(cpnmkt.by.zone.year, 10)
+
+#substract company's exposure and claims from market values
+i <- 1
+while(i < NROW(cpnmkt.by.zone.year))
+{
+  if(cpnmkt.by.zone.year[i, "zone_id"] == cpnmkt.by.zone.year[i+1, "zone_id"] && cpnmkt.by.zone.year[i, "year"] == cpnmkt.by.zone.year[i+1, "year"])
+  {
+    if(cpnmkt.by.zone.year[i, "Entity"] == "Market" && cpnmkt.by.zone.year[i+1, "Entity"] == "Company")
+    {
+      cpnmkt.by.zone.year[i, "exposure"] <- cpnmkt.by.zone.year[i, "exposure"] - cpnmkt.by.zone.year[i+1, "exposure"]
+      cpnmkt.by.zone.year[i, "claims"] <- cpnmkt.by.zone.year[i, "claims"] - cpnmkt.by.zone.year[i+1, "claims"]
+    }else if(cpnmkt.by.zone.year[i+1, "Entity"] == "Market" && cpnmkt.by.zone.year[i, "Entity"] == "Company")
+    {
+      cpnmkt.by.zone.year[i+1, "exposure"] <- cpnmkt.by.zone.year[i+1, "exposure"] - cpnmkt.by.zone.year[i, "exposure"]
+      cpnmkt.by.zone.year[i+1, "claims"] <- cpnmkt.by.zone.year[i+1, "claims"] - cpnmkt.by.zone.year[i, "claims"]
+    }
+    if(i %% 1000 == 0)
+      cat(i, "\t")
+    i <- i+2
+  }else
+    i <- i+1
+}
+
+#
+
+#longitudinal format
+write.csv(cpnmkt.by.zone.year, file="cpnmkt_anonymized_data_grped_long.csv", row.names = FALSE)
+
+
+#Add entity field
+mkt.by.zone.year.unbal <- cbind(Entity="Market", mkt.by.zone.year.unbal)
+cpn.by.zone.year.unbal <- cbind(Entity="Company", cpn.by.zone.year.unbal)
+
+
+#merge
+cpnmkt.by.zone.year.unbal <- rbind(mkt.by.zone.year.unbal,
+                                   cpn.by.zone.year.unbal)
+
+#order
+cpnmkt.by.zone.year.unbal <- cpnmkt.by.zone.year.unbal[order(cpnmkt.by.zone.year.unbal$cat1), ]
+
+
+#unbalanced format
+write.csv(cpnmkt.by.zone.year.unbal, file="cpnmkt_anonymized_data_grped_unbal.csv", row.names = FALSE)
+
+
+if(dir.exists("~/drop2/Dropbox/CAS PROJECT 2020 CREDIBILITY/data/preprocessed"))
+{
+  setwd(odir)
+}
+```
+
+
+

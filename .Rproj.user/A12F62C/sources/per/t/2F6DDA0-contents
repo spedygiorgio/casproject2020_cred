@@ -1,0 +1,172 @@
+---
+title: 'Adjusting Manual Rates to Own Experience: Comparing the Credibility Approach
+  to Machine Learning'
+author: Giorgio A. Spedicato, Ph.D FCAS FSA CSPA, Christophe Dutang, Ph.D, Quentin
+  Guibert, Ph.D
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+bibliography: paper_biblio.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# Questions on the two datasets
+
+### Is the variable of interest discrete or continuous? is it really a claim number?
+
+Assuming continuous variable, the variable claim is well fitted by a Feller-Pareto distribution.
+see file `data/01_exploratory_analysis_preproc.R`
+
+If we restrict to discrete distribution, we may fit discrete Pareto distributions, known as Zipf distribution.
+
+
+### Can we describe the type of insurance considered in the dataset? as
+
+Is it confidential? could we speak how is defined exposures?
+
+The paragraphs describing the data collection is not very explicit. 
+
+
+
+### Would it be possible to rename explanatory variables in order to be more explicit? and to be able to comment results per explanatory variables?
+
+Such as geo1, geo2... for geographical variable, weather1, weather2, ... for weather-related variable? see file `data/mappings.xlsx`
+
+We think that the name of the variable is not an issue for confidentiality, compared to the levels/modalities of the variable.
+
+### Will it be possible to use the true peril value? 
+
+We don't think it will be problematic to make this value public? so that we can make real comments on model outputs.
+
+### What are the values of Italian provinces?
+
+We observe the following values: 
+"Porzione Italiana della Provincia Ligure Provenzale",
+"Provincia Adriatica"                                ,
+"Provincia Alpina"                                   ,
+"Provincia Appenninica"                              ,
+"Provincia Padana"                                   ,
+"Provincia Tirrenica"   
+
+We understand it cannot be public, just to understand the value.
+
+Do we cover all Italian territories? Is the market dataset for the whole country?
+
+
+### Years have been shifted in the dataset, no need to say it? 
+
+Can we display some graphics with respect to year?
+
+### How the aggregation was performed to obtain the response variable? summing or averaging?
+
+What is the meaning `The dataset contains exposures and claims aggregated by some classification variables`?
+
+
+### What the pre-processing does?
+Between the raw and the pre-processed dataset, the claim variable does not have the same values.
+In the raw dataset, there are few zeros for the claim variables 
+
+`> summary(cpnr$qli_assic)`
+
+`   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. `
+
+`      0     150     513    3325    1870 1498070 `
+
+while for pre-processed dataset, only 17% of claims are positive numbers?
+
+`> summary(cpn$claim)`
+
+`    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. `
+
+`     0.0      0.0      0.0    107.7      0.0 649324.0 `
+
+The number of rows are different : 84 428 for raw dataset and 82 073 for preprocessed dataset.
+
+Quantiles are also very different before and after pre-processing.
+
+
+### How the aggregation was performed to obtain explanatory variables? 
+Typically for population density or temperature extrema?
+
+### Should we add a letter in front of categorical levels for the product? rather than an integer
+For example, `P1`, `P2`, `P3`,... for `cat1`?
+
+### Regarding indexes for drought, lightning and hail, how are they computed?
+Information to understand the value yet it will not be public.
+
+What are the meaning of peril variable?
+
+`>levels(cpn$peril)`
+` [1] "AL" "CS" "EN" "EP" "GB" "GR" "SI" "ST" "VF" "VS" "ZA"`
+
+
+### How do you choose the train/valid datasets? Can we choose another sampling 80/20 for testing?
+
+In particular, it might be good to make cross validation.
+
+# Questions on modelling
+
+### What type of prediction you think? do we predict only the mean? other moments?
+From an actuarial point of view, are we only interesting in pricing?
+
+### Do you know which metrics you want compare the two approach?
+
+For frequency/count data, RMSE might not be the only metric. We may consider chi-square table.
+
+### Model explanation and understanding : it will be valuable to interpret the result by using explanatory variables?
+
+We consider important to explain results on that aspect.
+
+
+
+# Introduction 
+
+_TODO_
+
+# Datasets structure
+
+Two (anonymized) dataset were provided, one for the marketwide (`"mkt_anonymized_data.csv"`) and one for the company (`"mkt_anonumized_data.csv"`). The datasets share the same structure, as each company provides its data in the same format to the Pool, that aggregates individual filings into a marketwide file, that is provided back to the companies. The dataset contains exposures and claims aggregated by some classification variables. Variable names, levels and numeric variable distribution have been masked and anonymized for privacy and confidentiality purposes.
+
+__maybe a graphic could be done?__
+
+The following variables are contained in the provided data set:
+
+* *exposure*: the insurance exposure measures by classification group, on which the rate is filled (aggregated outcomes);
+* *claims*: the number of claims by classification group  (aggregated outcomes);
+* *ID*: unique row number (helper variable);
+* *zone_id*: territory (aggregating variable);
+* *year*: filing year (aggregating variable);
+* *group*: random partition of the dataset into train, valid and test set.
+* *cat1*: categorical variable 1, available in the original file (aggregating variable);
+* *cat2*: categorical variable 2, available in the original file (aggregating variable);
+* *cat3*: categorical variable 3, available in the original file (aggregating variable);
+* *cat4-cat8*: categorical variables related to the territory (joined to the original file by zone_id);
+* *cont1-cont12*: numeric variables related to the territory (joined to the original file by zone_id);
+
+Categorical and continuous covariates have been anonymized by label encoding and scaling (calibrated on market data).
+In addition, the last available year (2008) has been used as test set, while data from precedent years have been randomly split between train and validation sets on a 80/20 basis.
+
+
+# Machine learning techniques
+
+_TODO_
+
+# Credibility-based models
+
+_TODO_
+
+# Comparison
+
+_TODO_
+
+# Conclusion 
+
+_TODO_

@@ -1,0 +1,57 @@
+setwd("~/drop1-new/Dropbox/CAS PROJECT 2020 CREDIBILITY/data/preprocessed")
+d1 <- read.csv("cpn_anonymized_data.csv", nrows = 10)
+d1
+d1 <- read.table("cpn_anonymized_data.csv", nrows = 10, sep=";")
+d1
+d1 <- read.table("cpn_anonymized_data.csv", nrows = 10, sep=";", header=TRUE)
+d1
+d1 <- read.table("mkt_anonymized_data.csv", nrows = 10, sep=";", header=TRUE)
+d1
+d1 <- read.table("mkt_anonymized_data.csv", nrows = 1e3, sep=";", header=TRUE)
+summary(d1)
+setwd("~/drop1-new/Dropbox/CAS PROJECT 2020 CREDIBILITY/data")
+list.files("raw/")
+cpn <- read.table(header=TRUE, nrows=-1, file="raw/data_joined_cpn.csv", sep=";", dec=".")
+mkt <- read.table(header=TRUE, nrows=-1, file="raw/data_joined_mkt.csv", sep=";", dec=".")
+head(cpn)
+head(mkt)
+dim(cpn)
+dim(mkt)
+library(gdata)
+colmap <- read.xls("mappings.xlsx")
+colmap[colmap[,"italian.name"] == "", "italian.name"] <- paste("V",1:5)
+rownames(colmap) <- colmap[,"italian.name"]
+#change name
+idx <- colnames(cpn) %in% rownames(colmap)
+colnames(cpn)[idx] <- colmap[colnames(cpn)[idx], "english.name"]
+idx <- colnames(mkt) %in% rownames(colmap)
+colnames(mkt)[idx] <- colmap[colnames(mkt)[idx], "english.name"]
+summary(cpn[, idx])
+colSums(is.na(cpn))
+# cpn.final <- read.table(header=TRUE, nrows=-1, file="preprocessed/cpn_anonymized_data.csv", sep=";", dec=".")
+# mkt.final <- read.table(header=TRUE, nrows=-1, file="preprocessed/mkt_anonymized_data.csv", sep=";", dec=".")
+#
+# colSums(is.na(cpn.final))
+myvar <- c("year", "product",
+"peril"  ,"crop protection equipment"           ,
+"claims"              ,"exposure"      ,
+"population density"                  ,"average income"                       ,
+"Lightning index"                        ,"height above sea"                     ,
+"mountain town"                          ,"town degree of urbanization"         ,
+"town close to the sea"         ,"max temperature"                     ,
+"min temperature"                        ,"max wind"                            ,
+"drought index"                          ,"hail small"                          ,
+"hail medium"                            ,"hail big")
+summary(cpn$product)
+summary(as.factor(cpn$product))
+summary(cpn$prodotto)
+summary(as.factor(cpn$prodotto))
+head(cpn)
+#product analysis
+summary(cpn$product <- as.factor(cpn$product))
+summary(cpn$prodotto <- as.factor(cpn$prodotto))
+tapply(cpn$product, cpn$claims, mean)
+tapply(cpn$product, cpn$claims, summary)
+tapply(cpn$claims, cpn$product, summary)
+tapply(cpn$claims, cpn$prodotto, summary)
+tapply(cpn$claims > 0, cpn$prodotto, mean)
