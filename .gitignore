@@ -10,4 +10,5 @@ meeting-summary/
 *.docx
 references/
 *.bib
-modelss/
+models/
+.Rproj.user
