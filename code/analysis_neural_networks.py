@@ -22,6 +22,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.initializers import Zeros, Constant
 from tensorflow import feature_column
 from tensorflow.keras import regularizers
+from tensorflow.keras.utils import plot_model
 # %% load data
 dtypes_dict = {'claims':int, 'zone_id':str}
 df_mkt=pd.read_csv(os.path.join(dataprocessed_dir, 'mkt_anonymized_data.csv'), sep=";", decimal=".", dtype=dtypes_dict)
