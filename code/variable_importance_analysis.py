@@ -28,8 +28,6 @@ lgb.plot_importance(lgbm_CPN)
 plt.title('LGBM CPN Model variable importance analysis')
 plt.savefig(os.path.join(outs_dir,'lgbm_cpn_varimp.png'))
 plt.show()
-
-
 #%% LGBM TRF model
 lgb.plot_importance(lgbm_TRF)
 plt.title('LGBM TRF Model variable importance analysis')
