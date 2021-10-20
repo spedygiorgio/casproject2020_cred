@@ -13,3 +13,4 @@ references/
 models/
 .Rproj.user/*
 *.xlsx
+.Rproj.user
