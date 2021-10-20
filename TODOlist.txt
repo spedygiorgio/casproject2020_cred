@@ -1,0 +1,35 @@
+TODO list
+
+Table 1 to put in appendix and to convert in figure
+
+Table 2 => use kablextra
+
+Numerical credibility application
+__ use only train with cm(), select best formula on validation set
+__ overall comparison on test company dataset (19124 rows)
+
+
+Fullfill Section 5.2.4 on credibility 
+__ explain the full process to select the most appropriate hierarchical formula (a clear difference with ML methods)
+__ training time and predicting time 
+__ explain how discretization was performed on continuous variables for Hierarchical BS => we use ForestDisc pkg
+
+competitors pkg to perform dicretization are 
+- https://cran.r-project.org/web/packages/discretization/index.html
+- https://cran.r-project.org/web/packages/RWeka/index.html 
+
+
+start a github repository 
+__ a subset of anonymized datasets data/illustrative_sample/ => either put csv and/or rdata file in CASdatasets
+__ Python code
+__ R code
+
+Try a basic version of BS model* with only zone_id
+
+* particularly used for small size datasets, e.g., reinsurance
+
+
+
+IDEAS
+
+https://cran.r-project.org/web/packages/glmulti/index.html
