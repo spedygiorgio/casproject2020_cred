@@ -1,12 +1,12 @@
 .Rhistory
+.vscode/
 desktop.ini
 agricolture-ita/
 cas_in_out/
 data/
 code/
-!code/analysis_lightgbm.py
-!code/analysis_neural_networks.py
-!data/illustrative_sample/
+m/
+output/
 desktop.ini
 materials/
 meeting-summary/
@@ -21,3 +21,9 @@ models/
 .Rproj.user/
 *.xlsx
 *.tex
+
+# esclusioni
+
+!code/analysis_lightgbm.py
+!code/analysis_neural_networks.py
+!data/illustrative_sample/**
