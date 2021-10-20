@@ -24,6 +24,10 @@ models/
 
 # esclusioni
 
+
 !code/analysis_lightgbm.py
+!code/config_all.py
+!code/compare_prediction.R
+!code/compare_prediction_2.R
 !code/analysis_neural_networks.py
 !data/illustrative_sample/**
