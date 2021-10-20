@@ -12,6 +12,7 @@ materials/
 meeting-summary/
 *.pdf
 *.Rmd
+*.md
 *.docx
 *.log
 references/
@@ -19,3 +20,4 @@ references/
 models/
 .Rproj.user/
 *.xlsx
+*.tex
