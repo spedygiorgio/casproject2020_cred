@@ -5,7 +5,7 @@ data/
 desktop.ini
 materials/
 meeting-summary/
-*.ptf
+*.pdf
 *.Rmd
 *.docx
 references/
