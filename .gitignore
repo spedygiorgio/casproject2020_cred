@@ -11,4 +11,5 @@ meeting-summary/
 references/
 *.bib
 models/
-.Rproj.user
+.Rproj.user/*
+*.xlsx
